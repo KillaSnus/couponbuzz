@@ -60,102 +60,117 @@ export const HomeView: React.FC<HomeViewProps> = ({
     <div className="space-y-16 pb-16">
       
       {/* 1. HERO SECTION */}
-      {homeSections.some(s => s.type === 'hero' && s.enabled !== false) && (
-        <section 
-          className="relative text-white py-16 sm:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden shadow-inner"
-          style={{
-            background: `radial-gradient(900px 400px at 85% -10%, rgba(234, 88, 12, 0.35), transparent 60%), linear-gradient(135deg, ${db.settings.theme.primaryDark || '#3730a3'}, ${db.settings.theme.primary || '#4f46e5'})`
-          }}
-        >
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              
-              <div className="lg:col-span-7 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-bold text-white mb-6 border border-white/20">
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>Tested & Hand-Verified Daily</span>
-                </div>
+      {homeSections.some(s => s.type === 'hero' && s.enabled !== false) && (() => {
+        const heroSec = homeSections.find(s => s.type === 'hero');
+        const heroTitle = heroSec?.title || 'Find verified promo codes worth using';
+        const heroSubtitle = heroSec?.subtitle || `Browse ${publishedStores.length}+ stores across the US, UK, Canada, Australia and Europe. Every discount voucher shows when it was last checked, and expired ones are removed.`;
+        const heroImage = heroSec?.imageUrl || db.settings.theme.heroImageUrl;
 
-                <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
-                  Find verified promo codes worth using
-                </h1>
-
-                <p className="mt-4 text-base sm:text-lg text-slate-200 max-w-2xl leading-relaxed">
-                  Browse {publishedStores.length}+ stores across the US, UK, Canada, Australia and Europe. Every discount voucher shows when it was last checked, and expired ones are removed.
-                </p>
-
-                {/* Hero Search Box */}
-                <form onSubmit={handleSearch} className="mt-8 flex flex-col sm:flex-row gap-2 max-w-xl">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      placeholder="Search store, e.g. Nike, ASOS, NordVPN..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-white text-slate-900 placeholder-slate-400 pl-12 pr-4 py-4 rounded-2xl text-base shadow-xl focus:outline-hidden focus:ring-4 focus:ring-white/30"
-                    />
-                    <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+        return (
+          <section 
+            className="relative text-white py-16 sm:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden shadow-inner"
+            style={{
+              background: heroImage && db.settings.theme.heroStyle === 'image'
+                ? `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), url('${heroImage}') center/cover no-repeat`
+                : `radial-gradient(900px 400px at 85% -10%, rgba(234, 88, 12, 0.35), transparent 60%), linear-gradient(135deg, ${db.settings.theme.primaryDark || '#3730a3'}, ${db.settings.theme.primary || '#4f46e5'})`
+            }}
+          >
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                
+                <div className="lg:col-span-7 text-center lg:text-left">
+                  <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-bold text-white mb-6 border border-white/20">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Tested & Hand-Verified Daily</span>
                   </div>
-                  <button
-                    type="submit"
-                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-base px-8 py-4 rounded-2xl transition-all shadow-xl hover:shadow-2xl cursor-pointer"
-                  >
-                    Find Codes
-                  </button>
-                </form>
 
-                {/* Popular Brand Pills */}
-                <div className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 text-xs text-white/80">
-                  <span className="font-semibold text-white">Trending:</span>
-                  {['nike', 'nordvpn', 'asos', 'best-buy', 'sephora'].map(slug => (
-                    <button
-                      key={slug}
-                      onClick={() => navigate(`/coupons/${slug}`)}
-                      className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/15 transition-colors cursor-pointer capitalize"
-                    >
-                      {slug.replace('-', ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                    {heroTitle}
+                  </h1>
 
-              {/* Floating Hero Deals Display */}
-              <div className="hidden lg:grid lg:col-span-5 gap-3.5 justify-items-end">
-                {featuredOffers.slice(0, 3).map((offer, idx) => {
-                  const s = getStore(offer.storeSlug);
-                  return (
-                    <div
-                      key={offer.id}
-                      onClick={() => onRevealOffer(offer, s)}
-                      className={`bg-white text-slate-900 p-4 rounded-2xl shadow-2xl border border-white/20 w-80 cursor-pointer hover:-translate-y-1 transition-all ${
-                        idx === 0 ? '-rotate-1' : idx === 1 ? 'translate-x-4 rotate-1' : '-rotate-1'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                          {s ? getInitials(s.name) : 'CB'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-slate-500 uppercase truncate">
-                            {s?.name || offer.storeSlug}
-                          </div>
-                          <div className="text-sm font-bold text-slate-900 truncate">
-                            {offer.discount || offer.title}
-                          </div>
-                        </div>
-                        <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg shrink-0">
-                          Reveal
-                        </span>
-                      </div>
+                  <p className="mt-4 text-base sm:text-lg text-slate-200 max-w-2xl leading-relaxed">
+                    {heroSubtitle}
+                  </p>
+
+                  {/* Hero Search Box */}
+                  <form onSubmit={handleSearch} className="mt-8 flex flex-col sm:flex-row gap-2 max-w-xl">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Search store, e.g. Nike, ASOS, NordVPN..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-white text-slate-900 placeholder-slate-400 pl-12 pr-4 py-4 rounded-2xl text-base shadow-xl focus:outline-hidden focus:ring-4 focus:ring-white/30"
+                      />
+                      <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     </div>
-                  );
-                })}
-              </div>
+                    <button
+                      type="submit"
+                      className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-base px-8 py-4 rounded-2xl transition-all shadow-xl hover:shadow-2xl cursor-pointer"
+                    >
+                      Find Codes
+                    </button>
+                  </form>
 
+                  {/* Popular Brand Pills */}
+                  <div className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 text-xs text-white/80">
+                    <span className="font-semibold text-white">Trending:</span>
+                    {['nike', 'nordvpn', 'asos', 'best-buy', 'sephora'].map(slug => (
+                      <button
+                        key={slug}
+                        onClick={() => navigate(`/coupons/${slug}`)}
+                        className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/15 transition-colors cursor-pointer capitalize"
+                      >
+                        {slug.replace('-', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hero Right Column: Custom Hero Image OR Floating Deals Display */}
+                <div className="hidden lg:grid lg:col-span-5 gap-3.5 justify-items-end">
+                  {heroImage && db.settings.theme.heroStyle !== 'image' ? (
+                    <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20">
+                      <img src={heroImage} alt="Hero Highlight" className="w-full h-80 object-cover" />
+                    </div>
+                  ) : (
+                    featuredOffers.slice(0, 3).map((offer, idx) => {
+                      const s = getStore(offer.storeSlug);
+                      return (
+                        <div
+                          key={offer.id}
+                          onClick={() => onRevealOffer(offer, s)}
+                          className={`bg-white text-slate-900 p-4 rounded-2xl shadow-2xl border border-white/20 w-80 cursor-pointer hover:-translate-y-1 transition-all ${
+                            idx === 0 ? '-rotate-1' : idx === 1 ? 'translate-x-4 rotate-1' : '-rotate-1'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                              {s ? getInitials(s.name) : 'CB'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-slate-500 uppercase truncate">
+                                {s?.name || offer.storeSlug}
+                              </div>
+                              <div className="text-sm font-bold text-slate-900 truncate">
+                                {offer.discount || offer.title}
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg shrink-0">
+                              Reveal
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* 2. STATS STRIP */}
       {homeSections.some(s => s.type === 'stats' && s.enabled !== false) && (

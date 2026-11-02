@@ -149,8 +149,13 @@ export interface ThemeSettings {
   font: string;
   darkMode: 'auto' | 'light' | 'dark';
   logoUrl?: string;
+  logoHeight?: number;
+  logoText?: string;
   faviconUrl?: string;
   heroStyle?: string;
+  heroImageUrl?: string;
+  heroCtaText?: string;
+  heroCtaLink?: string;
   announcement: {
     enabled: boolean;
     text: string;
@@ -178,6 +183,9 @@ export interface HomeSection {
   subtitle?: string;
   limit?: number;
   html?: string;
+  imageUrl?: string;
+  ctaText?: string;
+  ctaLink?: string;
   items?: { q: string; a: string }[];
 }
 
@@ -185,11 +193,13 @@ export interface SeoSettings {
   titleTemplate: string;
   defaultDescription: string;
   ogImage: string;
+  canonicalUrl?: string;
   googleVerification: string;
   bingVerification: string;
   gaId: string;
   gtmId: string;
   robotsExtra: string;
+  customRobotsTxt?: string;
   noindexThin: boolean;
   sameAs: string[];
 }

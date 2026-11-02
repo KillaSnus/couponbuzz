@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "couponbuz_live": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

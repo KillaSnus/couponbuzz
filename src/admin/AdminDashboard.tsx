@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AppDatabase, Store, Coupon, Category, Post, Page, Collection, Submission, MediaItem } from '../data/types';
-import { storage } from '../services/storage';
+import { storage, SyncStatus } from '../services/storage';
 import { 
   LayoutDashboard, 
   Store as StoreIcon, 
@@ -31,8 +31,15 @@ import {
   Search,
   Eye,
   RefreshCw,
-  Copy
+  Copy,
+  Globe,
+  Flame,
+  Wrench,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+import { SeoStudio } from './SeoStudio';
+import { SeoAuditTool } from './SeoAuditTool';
 
 interface AdminDashboardProps {
   db: AppDatabase;
@@ -52,6 +59,8 @@ type TabType =
   | 'media' 
   | 'csvexport' 
   | 'theme' 
+  | 'seo'
+  | 'audit'
   | 'code' 
   | 'settings';
 
@@ -62,6 +71,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => storage.getSyncStatus());
+
+  useEffect(() => {
+    return storage.subscribeSyncStatus((status) => {
+      setSyncStatus({ ...status });
+    });
+  }, []);
 
   // Search & Filters inside CMS tables
   const [tableSearch, setTableSearch] = useState('');
@@ -74,11 +90,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
 
-  // CSV Import file input refs
+  // CSV Import & Media upload file input refs
   const storesFileRef = useRef<HTMLInputElement>(null);
   const couponsFileRef = useRef<HTMLInputElement>(null);
   const categoriesFileRef = useRef<HTMLInputElement>(null);
   const backupFileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const faviconFileRef = useRef<HTMLInputElement>(null);
+  const heroFileRef = useRef<HTMLInputElement>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -285,6 +304,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('seo')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
+              activeTab === 'seo' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Globe className="w-4 h-4 text-indigo-400" />
+              <span>SEO & Domain</span>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800">
+              .pro
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
+              activeTab === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>SEO Audit Studio</span>
+            </div>
+            <span className="text-[10px] font-black text-white bg-indigo-600 px-2 py-0.5 rounded-md">
+              Score
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('code')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
               activeTab === 'code' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -329,12 +378,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Top Navbar */}
         <header className="h-16 border-b border-slate-800/80 px-6 flex items-center justify-between gap-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-white capitalize">
-              {activeTab === 'csvexport' ? 'CSV Import & Export' : activeTab}
+            <h2 className="text-base font-bold text-white">
+              {activeTab === 'csvexport' ? 'CSV Import & Export Studio' : 
+               activeTab === 'theme' ? 'Website Customizer & Branding' :
+               activeTab === 'seo' ? 'SEO & Domain Studio (https://couponbuz.pro)' :
+               activeTab === 'audit' ? 'SEO Audit & Optimization Studio' :
+               activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
             </h2>
             <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Instant Live Sync Active
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              {syncStatus.rtdbActive ? 'Firebase Realtime Live' : 'Firebase Cloud Sync'}
             </span>
           </div>
 
@@ -1084,14 +1137,399 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )}
 
-          {/* TAB 7: WEBSITE CUSTOMIZER (Shopify-like Theme & Layout Editor) */}
+          {/* TAB 7: WEBSITE CUSTOMIZER & BRANDING (Shopify-like Theme & Layout Editor) */}
           {activeTab === 'theme' && (
             <div className="space-y-6">
-              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2">Theme & Announcement Bar</h3>
+              
+              {/* 1. LOGO & FAVICON STUDIO */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-400" />
+                    Branding, Logo & Favicon Customizer
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Upload your store logo and browser tab favicon. Updates publish instantly to the live header and footer.
+                  </p>
+                </div>
+
+                {/* Mock Browser Tab Preview for Favicon */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Live Browser Tab Preview
+                  </div>
+                  <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 max-w-sm flex items-center gap-2 shadow-inner">
+                    <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-slate-900 overflow-hidden border border-slate-800">
+                      {db.settings.theme.faviconUrl ? (
+                        <img src={db.settings.theme.faviconUrl} alt="Favicon" className="w-4 h-4 object-contain" />
+                      ) : (
+                        <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-slate-200 truncate flex-1">
+                      {db.settings.theme.logoText || db.settings.site.siteName || 'CouponBuz'} - Verified Promo Codes
+                    </span>
+                    <button className="text-slate-600 hover:text-slate-400 text-xs px-1">×</button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Logo Controls */}
+                  <div className="space-y-4 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Website Header Logo</h4>
+                      {db.settings.theme.logoUrl && (
+                        <button
+                          onClick={() => {
+                            storage.updateSettings({ theme: { ...db.settings.theme, logoUrl: '' } });
+                            showToast('Cleared custom logo. Reverted to stylish default badge.');
+                          }}
+                          className="text-[11px] text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Reset to Default
+                        </button>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">Logo Image URL</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://... or upload below"
+                          value={db.settings.theme.logoUrl || ''}
+                          onChange={(e) => storage.updateSettings({
+                            theme: { ...db.settings.theme, logoUrl: e.target.value.trim() }
+                          })}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-indigo-500 font-mono"
+                        />
+                        <button
+                          onClick={() => logoFileRef.current?.click()}
+                          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                        >
+                          <Upload className="w-3.5 h-3.5" /> Upload
+                        </button>
+                        <input
+                          ref={logoFileRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                const dataUrl = evt.target?.result as string;
+                                storage.updateSettings({ theme: { ...db.settings.theme, logoUrl: dataUrl } });
+                                showToast('Uploaded new logo image!');
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Brand Name Text</label>
+                        <input
+                          type="text"
+                          value={db.settings.theme.logoText || ''}
+                          placeholder={db.settings.site.siteName || 'CouponBuz'}
+                          onChange={(e) => storage.updateSettings({
+                            theme: { ...db.settings.theme, logoText: e.target.value }
+                          })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[11px] font-bold text-slate-400">Height: {db.settings.theme.logoHeight || 36}px</label>
+                        </div>
+                        <input
+                          type="range"
+                          min="24"
+                          max="56"
+                          value={db.settings.theme.logoHeight || 36}
+                          onChange={(e) => storage.updateSettings({
+                            theme: { ...db.settings.theme, logoHeight: parseInt(e.target.value) }
+                          })}
+                          className="w-full cursor-pointer accent-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live Header Logo Preview */}
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Live Header Preview</div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                        {db.settings.theme.logoUrl ? (
+                          <img 
+                            src={db.settings.theme.logoUrl} 
+                            alt="Logo preview" 
+                            style={{ height: `${db.settings.theme.logoHeight || 36}px` }} 
+                            className="w-auto object-contain rounded-md" 
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
+                            <Tag className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-extrabold text-slate-900 text-sm leading-tight">
+                            {db.settings.theme.logoText || db.settings.site.siteName || 'CouponBuz'}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-medium">Verified Promo Codes</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Favicon Controls */}
+                  <div className="space-y-4 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Browser Favicon</h4>
+                      <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800">
+                        Live Synced to Tab
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">Favicon URL or SVG Data</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="data:image/... or URL"
+                          value={db.settings.theme.faviconUrl || ''}
+                          onChange={(e) => storage.updateSettings({
+                            theme: { ...db.settings.theme, faviconUrl: e.target.value.trim() }
+                          })}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-indigo-500 font-mono text-ellipsis"
+                        />
+                        <button
+                          onClick={() => faviconFileRef.current?.click()}
+                          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                        >
+                          <Upload className="w-3.5 h-3.5" /> Upload
+                        </button>
+                        <input
+                          ref={faviconFileRef}
+                          type="file"
+                          accept=".svg,.png,.ico,.jpg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                const dataUrl = evt.target?.result as string;
+                                storage.updateSettings({ theme: { ...db.settings.theme, faviconUrl: dataUrl } });
+                                showToast('Favicon updated and active in browser tab!');
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-400 mb-2">1-Click Favicon Presets</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          onClick={() => {
+                            const svg = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'><path d='M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828l-8-8zM7 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/></svg>";
+                            storage.updateSettings({ theme: { ...db.settings.theme, faviconUrl: svg } });
+                            showToast('Applied Indigo Coupon Tag Favicon!');
+                          }}
+                          className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-[11px] font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                          Tag Icon
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const svg = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ea580c'><path d='M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z'/></svg>";
+                            storage.updateSettings({ theme: { ...db.settings.theme, faviconUrl: svg } });
+                            showToast('Applied Hot Deals Flame Favicon!');
+                          }}
+                          className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-[11px] font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Flame className="w-3.5 h-3.5 text-orange-500" />
+                          Hot Flame
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const svg = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z'/></svg>";
+                            storage.updateSettings({ theme: { ...db.settings.theme, faviconUrl: svg } });
+                            showToast('Applied Emerald Sparkle Favicon!');
+                          }}
+                          className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-[11px] font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                          Sparkle
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const svg = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3.8 6l1.5-2h13.4l1.5 2zM16 10a4 4 0 0 1-8 0'/></svg>";
+                            storage.updateSettings({ theme: { ...db.settings.theme, faviconUrl: svg } });
+                            showToast('Applied Blue Shopping Bag Favicon!');
+                          }}
+                          className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-[11px] font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <StoreIcon className="w-3.5 h-3.5 text-blue-400" />
+                          Shopping Bag
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Dynamically updates the browser tab in real time with zero page refresh.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. HERO SECTION & HERO IMAGE CUSTOMIZER */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-amber-400" />
+                      Home Hero Section & Section Images
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Customize the main homepage headline, subtitle, hero background image, or featured banner.
+                    </p>
+                  </div>
+                </div>
+
+                {(() => {
+                  const heroSec = db.settings.home.sections.find(s => s.type === 'hero') || {
+                    type: 'hero',
+                    enabled: true,
+                    title: 'Find verified promo codes worth using',
+                    subtitle: 'Browse thousands of hand-tested discount vouchers across US, UK, Canada, Australia and Europe.'
+                  };
+
+                  return (
+                    <div className="space-y-4 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1">Hero Main Headline</label>
+                          <input
+                            type="text"
+                            value={heroSec.title || ''}
+                            onChange={(e) => {
+                              const updated = db.settings.home.sections.map(s => 
+                                s.type === 'hero' ? { ...s, title: e.target.value } : s
+                              );
+                              storage.updateSettings({ home: { sections: updated } });
+                            }}
+                            className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-hidden focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1">Hero Background Style</label>
+                          <select
+                            value={db.settings.theme.heroStyle || 'gradient'}
+                            onChange={(e) => storage.updateSettings({
+                              theme: { ...db.settings.theme, heroStyle: e.target.value }
+                            })}
+                            className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-bold cursor-pointer"
+                          >
+                            <option value="gradient">Modern Radial Indigo/Amber Gradient</option>
+                            <option value="image">Custom Background Image (Full Cover Overlay)</option>
+                            <option value="split">Split Layout (Headline Left, Hero Image Card Right)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Hero Subtitle Paragraph</label>
+                        <textarea
+                          rows={2}
+                          value={heroSec.subtitle || ''}
+                          onChange={(e) => {
+                            const updated = db.settings.home.sections.map(s => 
+                              s.type === 'hero' ? { ...s, subtitle: e.target.value } : s
+                            );
+                            storage.updateSettings({ home: { sections: updated } });
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl p-3 text-xs focus:outline-hidden focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Hero Featured Image URL</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="https://images.unsplash.com/... or upload"
+                            value={db.settings.theme.heroImageUrl || ''}
+                            onChange={(e) => storage.updateSettings({
+                              theme: { ...db.settings.theme, heroImageUrl: e.target.value.trim() }
+                            })}
+                            className="flex-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                          />
+                          <button
+                            onClick={() => heroFileRef.current?.click()}
+                            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Upload className="w-3.5 h-3.5" /> Upload Image
+                          </button>
+                          <input
+                            ref={heroFileRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  const dataUrl = evt.target?.result as string;
+                                  storage.updateSettings({
+                                    theme: { ...db.settings.theme, heroImageUrl: dataUrl, heroStyle: 'split' }
+                                  });
+                                  showToast('Hero image uploaded!');
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </div>
+                        {db.settings.theme.heroImageUrl && (
+                          <div className="mt-2 relative w-48 h-24 rounded-xl overflow-hidden border border-slate-800">
+                            <img src={db.settings.theme.heroImageUrl} alt="Hero Preview" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => storage.updateSettings({ theme: { ...db.settings.theme, heroImageUrl: '' } })}
+                              className="absolute top-1 right-1 bg-black/70 text-rose-400 p-1 rounded-md text-[10px]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 3. THEME PALETTE & ANNOUNCEMENT BAR */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+                <h3 className="text-base font-bold text-white mb-2">Palette Colors & Announcement Bar</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Primary Color</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Primary Brand Color</label>
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
@@ -1103,7 +1541,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="text"
                         value={db.settings.theme.primary}
                         onChange={(e) => storage.updateSettings({ theme: { ...db.settings.theme, primary: e.target.value } })}
-                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white flex-1"
                       />
                     </div>
                   </div>
@@ -1121,7 +1559,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="text"
                         value={db.settings.theme.accent}
                         onChange={(e) => storage.updateSettings({ theme: { ...db.settings.theme, accent: e.target.value } })}
-                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white flex-1"
                       />
                     </div>
                   </div>
@@ -1181,9 +1619,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Home Sections Order & Toggle */}
-              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2">Home Page Sections</h3>
+              {/* 4. HEADER NAVIGATION MENU EDITOR */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Header Navigation Links</h3>
+                    <p className="text-xs text-slate-400">Edit the top navbar menu links and reorder them live.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const label = prompt('Enter link label (e.g. "Exclusive Deals"):');
+                      const url = prompt('Enter link URL (e.g. "/deals/"):', '/deals/');
+                      if (label && url) {
+                        const updatedNav = [...db.settings.nav.header, { label: label.trim(), url: url.trim(), type: 'link' as const }];
+                        storage.updateSettings({ nav: { ...db.settings.nav, header: updatedNav } });
+                        showToast('Navigation link added!');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Menu Item
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {db.settings.nav.header.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 p-3 rounded-2xl border border-slate-800 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-500 font-mono font-bold">{idx + 1}</span>
+                        <div>
+                          <div className="text-white font-bold">{item.label}</div>
+                          <div className="text-slate-400 font-mono text-[11px]">{item.url}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {idx > 0 && (
+                          <button
+                            onClick={() => {
+                              const updated = [...db.settings.nav.header];
+                              const temp = updated[idx];
+                              updated[idx] = updated[idx - 1];
+                              updated[idx - 1] = temp;
+                              storage.updateSettings({ nav: { ...db.settings.nav, header: updated } });
+                            }}
+                            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg cursor-pointer"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {idx < db.settings.nav.header.length - 1 && (
+                          <button
+                            onClick={() => {
+                              const updated = [...db.settings.nav.header];
+                              const temp = updated[idx];
+                              updated[idx] = updated[idx + 1];
+                              updated[idx + 1] = temp;
+                              storage.updateSettings({ nav: { ...db.settings.nav, header: updated } });
+                            }}
+                            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg cursor-pointer"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remove "${item.label}" from navigation?`)) {
+                              const updated = db.settings.nav.header.filter((_, i) => i !== idx);
+                              storage.updateSettings({ nav: { ...db.settings.nav, header: updated } });
+                              showToast('Menu item removed.');
+                            }
+                          }}
+                          className="p-1 text-rose-400 hover:text-rose-300 hover:bg-slate-800 rounded-lg cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. HOME PAGE SECTIONS ORDER & TOGGLE */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+                <h3 className="text-base font-bold text-white mb-2">Home Page Sections Visibility</h3>
                 <p className="text-xs text-slate-400 mb-4">Toggle visible sections on the homepage live.</p>
                 
                 <div className="space-y-2">
@@ -1213,6 +1735,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
             </div>
+          )}
+
+          {/* TAB: SEO & DOMAIN STUDIO */}
+          {activeTab === 'seo' && (
+            <SeoStudio db={db} showToast={showToast} />
+          )}
+
+          {/* TAB: SEO AUDIT & OPTIMIZATION STUDIO */}
+          {activeTab === 'audit' && (
+            <SeoAuditTool
+              db={db}
+              onEditStore={(store) => setEditingStore({ ...store })}
+              onEditCoupon={(coupon) => setEditingCoupon({ ...coupon })}
+              onEditPage={(page) => setEditingPage({ ...page })}
+              onEditPost={(post) => setEditingPost({ ...post })}
+              showToast={showToast}
+            />
           )}
 
           {/* TAB 8: CUSTOM CODE */}
@@ -1329,6 +1868,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     Factory Reset
                   </button>
+                </div>
+              </div>
+
+              {/* Firebase Cloud & Cloudflare Deployment Status */}
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                      🔥
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Firebase & Cloudflare Integration</h3>
+                      <p className="text-xs text-slate-400">Live multi-user cloud datastore and deployment status</p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live Connected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                    <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Firebase Project ID</div>
+                    <div className="text-white font-mono font-bold">couponbuz</div>
+                  </div>
+
+                  <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                    <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Realtime Database URL</div>
+                    <div className="text-white font-mono font-bold truncate">https://couponbuz-default-rtdb.firebaseio.com</div>
+                  </div>
+
+                  <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                    <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Auth Domain</div>
+                    <div className="text-white font-mono font-bold">couponbuz.firebaseapp.com</div>
+                  </div>
+
+                  <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                    <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Cloudflare Deployment</div>
+                    <div className="text-emerald-400 font-bold flex items-center gap-1">
+                      <span>✓ GitHub Auto-Deploy Ready (Vite / dist)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => {
+                      storage.saveDatabase(db, true);
+                      showToast('Pushed all stores, coupons & settings to Firebase Realtime Database!');
+                    }}
+                    className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Force Sync All Data to Firebase Cloud
+                  </button>
+
+                  <a
+                    href="https://dash.cloudflare.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold border border-slate-800 flex items-center justify-center gap-2"
+                  >
+                    <span>Open Cloudflare Pages Dashboard</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
                 </div>
               </div>
             </div>

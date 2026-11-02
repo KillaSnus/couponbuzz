@@ -21,6 +21,7 @@ import { SearchView } from './views/SearchView';
 
 // Admin CMS
 import { AdminDashboard } from './admin/AdminDashboard';
+import { LoginPanelView } from './admin/LoginPanelView';
 
 export function App() {
   const [db, setDb] = useState<AppDatabase>(() => storage.getDatabase());
@@ -40,6 +41,24 @@ export function App() {
     });
     return unsubscribe;
   }, []);
+
+  // Synchronize dynamic favicon
+  useEffect(() => {
+    const faviconUrl = db.settings.theme.faviconUrl;
+    if (faviconUrl) {
+      let link: HTMLLinkElement | null = document.getElementById('app-favicon') as HTMLLinkElement | null;
+      if (!link) {
+        link = document.querySelector("link[rel*='icon']");
+      }
+      if (!link) {
+        link = document.createElement('link');
+        link.id = 'app-favicon';
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = faviconUrl;
+    }
+  }, [db.settings.theme.faviconUrl]);
 
   // Listen to browser navigation
   useEffect(() => {
@@ -71,12 +90,6 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     window.history.pushState(null, '', path);
     setCurrentPath(path);
-
-    if (path === '/admin') {
-      if (!storage.isAdminAuthenticated()) {
-        setShowAdminAuthModal(true);
-      }
-    }
   };
 
   const handleRevealOffer = (coupon: Coupon, store?: Store) => {
@@ -98,8 +111,9 @@ export function App() {
     }
   };
 
-  // Check if viewing Admin CMS
-  const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
+  // Check if viewing Admin CMS or Login panel
+  const pathClean = currentPath.toLowerCase().replace(/\/$/, '') || '/';
+  const isAdminRoute = pathClean === '/admin' || pathClean.startsWith('/admin/') || pathClean === '/login';
 
   // If on admin route and authenticated, show Admin Dashboard
   if (isAdminRoute && isAdmin) {
@@ -111,6 +125,19 @@ export function App() {
           storage.logoutAdmin();
           setIsAdmin(false);
           navigate('/');
+        }}
+      />
+    );
+  }
+
+  // If on admin route and NOT authenticated, show dedicated Login Panel View
+  if (isAdminRoute && !isAdmin) {
+    return (
+      <LoginPanelView
+        db={db}
+        navigate={navigate}
+        onLoginSuccess={() => {
+          setIsAdmin(true);
         }}
       />
     );
@@ -222,7 +249,7 @@ export function App() {
         currentPath={currentPath}
         navigate={navigate}
         isAdmin={isAdmin}
-        onOpenAdminAuth={() => setShowAdminAuthModal(true)}
+        onOpenAdminAuth={() => navigate('/admin')}
       />
 
       {/* Main Content */}
@@ -235,7 +262,7 @@ export function App() {
         db={db}
         navigate={navigate}
         isAdmin={isAdmin}
-        onOpenAdminAuth={() => setShowAdminAuthModal(true)}
+        onOpenAdminAuth={() => navigate('/admin')}
       />
 
       {/* Coupon Reveal Modal */}

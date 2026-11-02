@@ -120,7 +120,12 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2.5 text-left group cursor-pointer focus:outline-hidden"
             >
               {theme.logoUrl ? (
-                <img src={theme.logoUrl} alt={site.siteName} className="h-9 w-auto object-contain rounded-md" />
+                <img 
+                  src={theme.logoUrl} 
+                  alt={theme.logoText || site.siteName || 'CouponBuz'} 
+                  style={{ height: `${theme.logoHeight || 36}px`, maxHeight: '48px' }} 
+                  className="w-auto object-contain rounded-md" 
+                />
               ) : (
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm"
@@ -131,10 +136,10 @@ export const Header: React.FC<HeaderProps> = ({
               )}
               <div>
                 <span className="text-xl font-extrabold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-                  {site.siteName || 'CouponBuz'}
+                  {theme.logoText || site.siteName || 'CouponBuz'}
                 </span>
                 <span className="hidden sm:block text-[11px] font-medium text-slate-500 leading-none">
-                  Verified Promo Codes
+                  {site.tagline || 'Verified Promo Codes'}
                 </span>
               </div>
             </button>
@@ -371,9 +376,9 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             ) : (
               <button
-                onClick={onOpenAdminAuth}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-                title="Admin Login (Staff only)"
+                onClick={() => navigate('/admin')}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+                title="Admin Staff Login"
                 aria-label="Admin Login"
               >
                 <Lock className="w-4 h-4" />
@@ -449,6 +454,13 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Send className="w-4 h-4 text-indigo-600" />
               Submit Code
+            </button>
+            <button
+              onClick={() => { setMobileMenuOpen(false); navigate('/admin'); }}
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900 text-slate-200 hover:bg-slate-800 text-left cursor-pointer"
+            >
+              <Lock className="w-4 h-4 text-amber-400" />
+              {isAdmin ? 'Open Admin CMS' : 'Staff Login'}
             </button>
           </nav>
         </div>

@@ -1,40 +1,62 @@
 import { AppDatabase, Store, Coupon, Category, Post, Page, Collection, Submission, MediaItem } from '../data/types';
 import { INITIAL_DATABASE } from '../data/seedData';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue as rtdbOnValue, get as rtdbGet } from 'firebase/database';
 
 const STORAGE_KEY = 'couponbuz_live_database_v2';
 const ADMIN_AUTH_KEY = 'couponbuz_admin_authenticated';
 
-// Firebase initialization using user provided credentials
-const firebaseConfig = {
-  apiKey: "AIzaSyD4cFW2ZCg_O1asVUxyadWY6N_qu0SyMvc",
-  authDomain: "prime-byway-426017-r1.firebaseapp.com",
-  projectId: "prime-byway-426017-r1",
-  storageBucket: "prime-byway-426017-r1.firebasestorage.app",
-  messagingSenderId: "1053197079185",
-  appId: "1:1053197079185:web:bd1930669da3c4e9ade530",
-  measurementId: "G-93D3GVK2DS"
+// Firebase configuration for project "couponbuz"
+export const firebaseConfig = {
+  apiKey: "AIzaSyBrM8lgNg5wJvXElxmUj-mJDUXmfjcdYNs",
+  authDomain: "couponbuz.firebaseapp.com",
+  databaseURL: "https://couponbuz-default-rtdb.firebaseio.com",
+  projectId: "couponbuz",
+  storageBucket: "couponbuz.firebasestorage.app",
+  messagingSenderId: "544441124079",
+  appId: "1:544441124079:web:6d7cbbfb890571f46e871a",
+  measurementId: "G-2DKQZQRS5L"
 };
 
 let firebaseApp: any = null;
 let firestoreDb: any = null;
+let rtdb: any = null;
 
 try {
   firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   firestoreDb = getFirestore(firebaseApp);
+  rtdb = getDatabase(firebaseApp);
 } catch (e) {
   console.warn('Firebase init notice:', e);
+}
+
+export interface SyncStatus {
+  connected: boolean;
+  rtdbActive: boolean;
+  firestoreActive: boolean;
+  lastSyncedAt: string | null;
+  mode: 'cloud-realtime' | 'local-fallback';
 }
 
 class StorageService {
   private database: AppDatabase;
   private listeners: Set<(db: AppDatabase) => void> = new Set();
+  private statusListeners: Set<(status: SyncStatus) => void> = new Set();
   private broadcast: BroadcastChannel | null = null;
   private isFirebaseSyncing: boolean = false;
+  private syncStatus: SyncStatus = {
+    connected: false,
+    rtdbActive: false,
+    firestoreActive: false,
+    lastSyncedAt: null,
+    mode: 'local-fallback'
+  };
 
   constructor() {
     this.database = this.loadLocal();
+
+    // 1. Instant cross-tab broadcast within the browser
     try {
       this.broadcast = new BroadcastChannel('couponbuz_sync_channel');
       this.broadcast.onmessage = (event) => {
@@ -44,11 +66,14 @@ class StorageService {
         }
       };
     } catch (e) {
-      // BroadcastChannel fallback
+      // Fallback if BroadcastChannel unavailable
     }
 
-    // Try remote cloud sync
-    this.syncFromFirebase();
+    // 2. Realtime Database live WebSocket sync
+    this.initRealtimeDatabaseSync();
+
+    // 3. Firestore live snapshot sync fallback
+    this.initFirestoreSync();
   }
 
   private loadLocal(): AppDatabase {
@@ -56,7 +81,6 @@ class StorageService {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Deep merge with initial database to preserve new schema fields
         return {
           ...INITIAL_DATABASE,
           ...parsed,
@@ -80,6 +104,100 @@ class StorageService {
     return JSON.parse(JSON.stringify(INITIAL_DATABASE));
   }
 
+  // --- Realtime Database WebSocket listener for instant cloud push ---
+  private initRealtimeDatabaseSync() {
+    if (!rtdb) return;
+    try {
+      const liveRef = rtdbRef(rtdb, 'couponbuz_live/current');
+      rtdbOnValue(liveRef, (snapshot) => {
+        const val = snapshot.val();
+        if (val && val.payload) {
+          try {
+            const remoteDb = JSON.parse(val.payload);
+            if (remoteDb && remoteDb.stores && remoteDb.coupons) {
+              this.database = {
+                ...this.database,
+                ...remoteDb
+              };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(this.database));
+              this.updateStatus({
+                connected: true,
+                rtdbActive: true,
+                mode: 'cloud-realtime',
+                lastSyncedAt: val.updatedAt || new Date().toISOString()
+              });
+              this.notify();
+            }
+          } catch (err) {
+            console.warn('Realtime database payload parse note:', err);
+          }
+        } else {
+          // If RTDB is empty, seed it with our rich starter database
+          this.updateStatus({ connected: true, rtdbActive: true, mode: 'cloud-realtime' });
+          this.syncToFirebase(this.database);
+        }
+      }, (error) => {
+        console.warn('Firebase RTDB listener notice (falling back to Firestore/local):', error.message);
+        this.updateStatus({ rtdbActive: false });
+      });
+    } catch (e) {
+      console.warn('RTDB setup notice:', e);
+    }
+  }
+
+  // --- Firestore real-time snapshot sync fallback ---
+  private initFirestoreSync() {
+    if (!firestoreDb) return;
+    try {
+      const docRef = doc(firestoreDb, 'couponbuz_live', 'current');
+      onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data?.payload && !this.syncStatus.rtdbActive) {
+            try {
+              const remoteDb = JSON.parse(data.payload);
+              this.database = {
+                ...this.database,
+                ...remoteDb
+              };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(this.database));
+              this.updateStatus({
+                connected: true,
+                firestoreActive: true,
+                lastSyncedAt: data.updatedAt || new Date().toISOString()
+              });
+              this.notify();
+            } catch (err) {
+              console.warn('Firestore payload parse note:', err);
+            }
+          }
+          this.updateStatus({ connected: true, firestoreActive: true });
+        }
+      }, (err) => {
+        console.warn('Firestore snapshot notice:', err.message);
+      });
+    } catch (e) {
+      console.warn('Firestore setup notice:', e);
+    }
+  }
+
+  private updateStatus(patch: Partial<SyncStatus>) {
+    this.syncStatus = { ...this.syncStatus, ...patch };
+    this.statusListeners.forEach((fn) => {
+      try { fn(this.syncStatus); } catch (e) {}
+    });
+  }
+
+  public getSyncStatus(): SyncStatus {
+    return this.syncStatus;
+  }
+
+  public subscribeSyncStatus(listener: (status: SyncStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    listener(this.syncStatus);
+    return () => this.statusListeners.delete(listener);
+  }
+
   public getDatabase(): AppDatabase {
     return this.database;
   }
@@ -101,6 +219,8 @@ class StorageService {
 
   public saveDatabase(newDb: AppDatabase, syncRemote: boolean = true) {
     this.database = newDb;
+
+    // 1. Save synchronously to localStorage (0ms latency)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newDb));
       if (this.broadcast) {
@@ -110,9 +230,11 @@ class StorageService {
       console.error('Failed saving to localStorage:', e);
     }
 
+    // 2. Instantly notify all components in the current tab
     this.notify();
 
-    if (syncRemote && firestoreDb) {
+    // 3. Sync to Firebase (both Realtime Database and Firestore)
+    if (syncRemote) {
       this.syncToFirebase(newDb);
     }
   }
@@ -120,41 +242,47 @@ class StorageService {
   private async syncToFirebase(db: AppDatabase) {
     if (this.isFirebaseSyncing) return;
     this.isFirebaseSyncing = true;
-    try {
-      const docRef = doc(firestoreDb, 'couponbuz_live', 'current');
-      await setDoc(docRef, {
-        updatedAt: new Date().toISOString(),
-        payload: JSON.stringify(db)
-      }, { merge: true });
-    } catch (err) {
-      // Non-blocking fallback to local storage
-      console.warn('Firebase cloud sync paused (using instantaneous local store):', err);
-    } finally {
-      this.isFirebaseSyncing = false;
-    }
-  }
+    const nowIso = new Date().toISOString();
+    const payloadStr = JSON.stringify(db);
 
-  private async syncFromFirebase() {
-    if (!firestoreDb) return;
-    try {
-      const docRef = doc(firestoreDb, 'couponbuz_live', 'current');
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data?.payload) {
-          const remoteDb = JSON.parse(data.payload);
-          // Check if remote is newer or valid
-          this.database = {
-            ...this.database,
-            ...remoteDb
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.database));
-          this.notify();
-        }
+    // Sync to Realtime Database (WebSocket speed)
+    if (rtdb) {
+      try {
+        const liveRef = rtdbRef(rtdb, 'couponbuz_live/current');
+        await rtdbSet(liveRef, {
+          updatedAt: nowIso,
+          payload: payloadStr
+        });
+        this.updateStatus({
+          connected: true,
+          rtdbActive: true,
+          mode: 'cloud-realtime',
+          lastSyncedAt: nowIso
+        });
+      } catch (err: any) {
+        console.warn('RTDB sync notice:', err.message);
       }
-    } catch (e) {
-      // Local database remains active
     }
+
+    // Sync to Firestore (Document store)
+    if (firestoreDb) {
+      try {
+        const docRef = doc(firestoreDb, 'couponbuz_live', 'current');
+        await setDoc(docRef, {
+          updatedAt: nowIso,
+          payload: payloadStr
+        }, { merge: true });
+        this.updateStatus({
+          connected: true,
+          firestoreActive: true,
+          lastSyncedAt: nowIso
+        });
+      } catch (err: any) {
+        console.warn('Firestore sync notice:', err.message);
+      }
+    }
+
+    this.isFirebaseSyncing = false;
   }
 
   // --- Quick Mutation Helpers for Instant Live CMS ---
@@ -352,19 +480,46 @@ class StorageService {
   // --- Auth / Security ---
 
   public isAdminAuthenticated(): boolean {
-    return sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
+    return localStorage.getItem(ADMIN_AUTH_KEY) === 'true' || sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
   }
 
-  public verifyAdminPin(pin: string): boolean {
+  public verifyAdminPin(pin: string, remember: boolean = true): boolean {
     const expected = this.database.settings.security?.adminPin || 'admin123';
-    if (pin.trim() === expected.trim() || pin.trim() === 'admin123' || pin.trim() === 'couponbuz2026') {
-      sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+    const cleanPin = pin.trim();
+    if (cleanPin === expected.trim() || cleanPin === 'admin123' || cleanPin === 'couponbuz2026') {
+      if (remember) {
+        localStorage.setItem(ADMIN_AUTH_KEY, 'true');
+      } else {
+        sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+      }
+      return true;
+    }
+    return false;
+  }
+
+  public verifyAdminCredentials(identifier: string, passOrPin: string, remember: boolean = true): boolean {
+    const cleanPin = passOrPin.trim();
+    const cleanId = identifier.trim().toLowerCase();
+    const expected = (this.database.settings.security?.adminPin || 'admin123').trim();
+
+    // Valid if password matches adminPin, or default pins
+    const isPinMatch = cleanPin === expected || cleanPin === 'admin123' || cleanPin === 'couponbuz2026';
+    // If identifier is provided, allow admin, admin@couponbuz.com, or any matching email
+    const isIdMatch = !cleanId || cleanId === 'admin' || cleanId.includes('admin') || cleanId === this.database.settings.site.email.toLowerCase();
+
+    if (isPinMatch && isIdMatch) {
+      if (remember) {
+        localStorage.setItem(ADMIN_AUTH_KEY, 'true');
+      } else {
+        sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+      }
       return true;
     }
     return false;
   }
 
   public logoutAdmin() {
+    localStorage.removeItem(ADMIN_AUTH_KEY);
     sessionStorage.removeItem(ADMIN_AUTH_KEY);
   }
 
@@ -395,7 +550,6 @@ class StorageService {
     const errors: string[] = [];
     const newStores = [...this.database.stores];
 
-    // Simple robust CSV line parser handling quotes
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       const cols: string[] = [];

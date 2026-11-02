@@ -87,11 +87,20 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Brand & About */}
           <div className="col-span-2 lg:col-span-2">
             <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
-                <Tag className="w-5 h-5" />
-              </div>
+              {db.settings.theme.logoUrl ? (
+                <img 
+                  src={db.settings.theme.logoUrl} 
+                  alt={db.settings.theme.logoText || site.siteName || 'CouponBuz'} 
+                  style={{ height: `${db.settings.theme.logoHeight || 36}px`, maxHeight: '42px' }} 
+                  className="w-auto object-contain rounded-md" 
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
+                  <Tag className="w-5 h-5" />
+                </div>
+              )}
               <span className="text-xl font-extrabold text-white tracking-tight">
-                {site.siteName || 'CouponBuz'}
+                {db.settings.theme.logoText || site.siteName || 'CouponBuz'}
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm mb-4">
@@ -164,12 +173,12 @@ export const Footer: React.FC<FooterProps> = ({
               </button>
             ) : (
               <button
-                onClick={onOpenAdminAuth}
-                className="text-slate-600 hover:text-slate-400 flex items-center gap-1 cursor-pointer"
-                title="Admin Staff Access"
+                onClick={() => navigate('/admin')}
+                className="text-slate-500 hover:text-slate-300 flex items-center gap-1.5 cursor-pointer transition-colors font-medium"
+                title="Admin Staff Login"
               >
-                <Lock className="w-3 h-3" />
-                Staff Portal
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                Staff Login
               </button>
             )}
           </div>
