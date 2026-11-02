@@ -1,0 +1,6 @@
+{
+  "name": "CouponBuz - Promo Codes, Deals & Admin CMS",
+  "description": "Professional promo codes and coupons platform with multi-country support, real-time Shopify-style hidden Admin CMS, CSV import/export, and instant live updates.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
